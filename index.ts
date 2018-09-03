@@ -3,20 +3,24 @@ import globby from 'globby';
 import makeDir from 'make-dir';
 import ndPath from 'path';
 
-export type TProgressData = {
+export type ProgressData = {
   completedItems: number;
   totalItems: number;
   completedSize: number;
 };
 
-export type TProgressCallback = (data: TProgressData) => void;
+export type ProgressCallback = (data: ProgressData) => void;
 
 function getPath(path: string, dest: string) {
   const { dir, base } = ndPath.parse(path);
   return ndPath.join(dest, dir, base);
 }
 
-export default async (src: string[], dest: string, cb?: TProgressCallback) => {
+module.exports = async (
+  src: string | string[],
+  dest: string,
+  cb?: ProgressCallback
+) => {
   let paths = await globby(src, {
     markDirectories: true,
     onlyFiles: false
