@@ -3,13 +3,7 @@ import globby from 'globby';
 import makeDir from 'make-dir';
 import ndPath from 'path';
 
-export type ProgressData = {
-  completedItems: number;
-  totalItems: number;
-  completedSize: number;
-};
-
-export type ProgressCallback = (data: ProgressData) => void;
+import { ProgressCallback, ProgressData } from './index.d';
 
 function getPath(path: string, dest: string) {
   const { dir, base } = ndPath.parse(path);
@@ -61,11 +55,13 @@ module.exports = async (
 
   await Promise.all<void | string>([...files, ...dirs]);
 
-  if (totalEmptyDirs > 0 && cb) {
-    cb({
-      completedItems: completedItems + totalEmptyDirs,
-      totalItems,
-      completedSize
-    });
-  }
+  const data: ProgressData = {
+    completedItems: completedItems + totalEmptyDirs,
+    totalItems,
+    completedSize
+  };
+
+  if (totalEmptyDirs > 0 && cb) cb(data);
+
+  return data;
 };
