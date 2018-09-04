@@ -13,7 +13,7 @@ function getPath(path: string, dest: string) {
 module.exports = async (
   src: string | string[],
   dest: string,
-  options?: {},
+  options?: any,
   cb?: ProgressCallback
 ) => {
   let paths = await globby(src, {
@@ -49,9 +49,11 @@ module.exports = async (
     if (data.percent === 1) completedSize += data.size;
   };
 
-  const files = paths.map(path =>
-    cpFile(path, getPath(path, dest)).on('progress', handleProgress)
-  );
+  const files = paths.map(path => {
+    const realPath =
+      options && options.cwd ? ndPath.resolve(options.cwd, path) : path;
+    cpFile(realPath, getPath(path, dest)).on('progress', handleProgress);
+  });
 
   const dirs = emptyDirs.map(path => makeDir(getPath(path, dest)));
 
