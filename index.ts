@@ -48,7 +48,7 @@ module.exports = async (
     options && options.cwd ? ndPath.resolve(options.cwd, path) : path;
 
   const getDestPath = (path: string, dest: string) => {
-    const { dir, base } = ndPath.parse(resolve(path));
+    const { dir, base } = ndPath.parse(path);
     return ndPath.join(resolve(dest), dir, base);
   };
 
