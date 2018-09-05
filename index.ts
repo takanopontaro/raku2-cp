@@ -5,11 +5,6 @@ import ndPath from 'path';
 
 import { Options, ProgressCallback, ProgressData } from './index.d';
 
-function getPath(path: string, dest: string) {
-  const { dir, base } = ndPath.parse(path);
-  return ndPath.join(dest, dir, base);
-}
-
 module.exports = async (
   src: string | string[],
   dest: string,
@@ -49,13 +44,22 @@ module.exports = async (
     if (data.percent === 1) completedSize += data.size;
   };
 
-  const files = paths.map(path => {
-    const realPath =
-      options && options.cwd ? ndPath.resolve(options.cwd, path) : path;
-    cpFile(realPath, getPath(path, dest)).on('progress', handleProgress);
-  });
+  const resolve = (path: string) =>
+    options && options.cwd ? ndPath.resolve(options.cwd, path) : path;
 
-  const dirs = emptyDirs.map(path => makeDir(getPath(path, dest)));
+  const getDestPath = (path: string, dest: string) => {
+    const { dir, base } = ndPath.parse(resolve(path));
+    return ndPath.join(resolve(dest), dir, base);
+  };
+
+  const files = paths.map(path =>
+    cpFile(resolve(path), getDestPath(path, dest)).on(
+      'progress',
+      handleProgress
+    )
+  );
+
+  const dirs = emptyDirs.map(path => makeDir(getDestPath(path, dest)));
 
   await Promise.all<void | string>([...files, ...dirs]);
 
