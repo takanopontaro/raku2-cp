@@ -11,6 +11,8 @@ module.exports = async (
   options?: Options | null,
   cb?: ProgressCallback
 ) => {
+  const cwd = (options && options.cwd) || '.';
+
   let paths = await globby(src, {
     ...options,
     markDirectories: true,
@@ -44,12 +46,12 @@ module.exports = async (
     if (data.percent === 1) completedSize += data.size;
   };
 
-  const resolve = (path: string) =>
-    options && options.cwd ? ndPath.resolve(options.cwd, path) : path;
+  const resolve = (path: string) => ndPath.relative(cwd, path);
 
   const getDestPath = (path: string, dest: string) => {
-    const { dir, base } = ndPath.parse(path);
-    return ndPath.join(resolve(dest), dir, base);
+    const { dir, base } = ndPath.parse(resolve(path));
+    const re = new RegExp(`\\.\\.${ndPath.sep}?`, 'g');
+    return ndPath.join(resolve(dest), dir.replace(re, ''), base);
   };
 
   const files = paths.map(path =>
