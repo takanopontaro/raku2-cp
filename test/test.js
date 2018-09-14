@@ -1,28 +1,32 @@
-const assert = require('chai').assert;
+const chai = require('chai');
+const chaiAsPromised = require('chai-as-promised');
 const del = require('del');
 const fs = require('fs');
-const makeDir = require('make-dir');
+const mkdir = require('make-dir');
 const path = require('path');
+const { promisify } = require('util');
 
 const cp = require('..');
+const { normalizeDirs, relative, buildPathsInfoList } = require('../dist/lib');
+
+const writeFile = promisify(fs.writeFile);
+
+chai.use(chaiAsPromised);
+
+const assert = chai.assert;
+
+async function touch(p) {
+  await mkdir(path.dirname(p));
+  await writeFile(p, '');
+}
 
 process.chdir(__dirname);
 
-/*
-src
-|-- 1.txt
-`-- a
-    |-- 2.txt
-    |-- b
-    |   `-- 3.txt
-    `-- empty-dir
-*/
 before(async () => {
-  await makeDir('src/a/b');
-  await makeDir('src/a/empty-dir');
-  fs.writeFileSync('src/1.txt', '');
-  fs.writeFileSync('src/a/2.txt', '');
-  fs.writeFileSync('src/a/b/3.txt', '');
+  await touch('src/1.txt');
+  await touch('src/a/2.txt');
+  await mkdir('src/a/empty-dir');
+  await touch('src/a/b/3.txt');
 });
 
 after(async () => {
@@ -33,49 +37,73 @@ afterEach(async () => {
   await del('dest');
 });
 
-describe('File(s)', () => {
-  it('relative to relative', async () => {
-    await cp('src/1.txt', 'dest');
+describe('lib', () => {
+  it('normalizeDirs', () => {
+    // prettier-ignore
+    const paths = [
+      '/a/b/c/',
+      '/a/b/',
+      '/a/b/d/',
+      '/a/b/c/1.txt',
+      '/a/b/d.txt'
+    ];
+    // prettier-ignore
+    const expects = [
+      '/a/b/c/1.txt',
+      '/a/b/d.txt',
+      '/a/b/d/'
+    ];
+    assert.deepEqual(normalizeDirs(paths), expects);
+  });
+
+  it('relative', () => {
+    const res1 = relative('/a/b', '/a/b/c/d.txt');
+    const res2 = relative('/a/b', '/a/b/c/d/');
+    assert.equal(res1, 'c/d.txt');
+    assert.equal(res2, 'c/d/');
+  });
+
+  it('buildPathsInfo', async () => {
+    const dirname = path.resolve('src');
+    // prettier-ignore
+    const paths = [
+      '1.txt',
+      'a/2.txt',
+      'a/b/3.txt',
+      'a/empty-dir/'
+    ];
+    const expects = { dirname, paths, file: false };
+    const res = await buildPathsInfoList('src', '.');
+    assert.deepEqual(res[0], expects);
+  });
+});
+
+describe('main', () => {
+  it('copy', async () => {
+    await cp(
+      [
+        'src',
+        'src/1.txt',
+        'src/a/empty-dir',
+        '../test/src/a/2.txt',
+        path.resolve('src/a/b/3.txt')
+      ],
+      'dest'
+    );
     assert.equal(true, fs.existsSync('dest/src/1.txt'));
-  });
-});
-
-describe('File(s)', () => {
-  it('relative to relative (2)', async () => {
-    process.chdir('src/a');
-    await cp('../1.txt', '../../dest');
-    process.chdir(__dirname);
-    assert.equal(true, fs.existsSync('dest/1.txt'));
-  });
-});
-
-describe('File(s)', () => {
-  it('absolute to relative', async () => {
-    await cp(path.resolve('src/1.txt'), 'dest');
-    assert.equal(true, fs.existsSync('dest/src/1.txt'));
-  });
-});
-
-describe('File(s)', () => {
-  it('relative to absolute', async () => {
-    await cp('src/1.txt', path.resolve('dest'));
-    assert.equal(true, fs.existsSync('dest/src/1.txt'));
-  });
-});
-
-describe('File(s)', () => {
-  it('absolute to absolute', async () => {
-    await cp(path.resolve('src/1.txt'), path.resolve('dest'));
-    assert.equal(true, fs.existsSync('dest/src/1.txt'));
-  });
-});
-
-describe('Directory(s)', () => {
-  it('relative to relative', async () => {
-    await cp('src/a', 'dest');
-    assert.equal(true, fs.existsSync('dest/src/a/b'));
-    assert.equal(true, fs.existsSync('dest/src/a/empty-dir'));
     assert.equal(true, fs.existsSync('dest/src/a/2.txt'));
+    assert.equal(true, fs.existsSync('dest/src/a/empty-dir'));
     assert.equal(true, fs.existsSync('dest/src/a/b/3.txt'));
+    assert.equal(true, fs.existsSync('dest/1.txt'));
+    assert.equal(true, fs.existsSync('dest/empty-dir'));
+    assert.equal(true, fs.existsSync('dest/2.txt'));
+    assert.equal(true, fs.existsSync('dest/3.txt'));
+  });
+
+  it('error', () => {
+    const fn1 = cp('hoge', 'dest');
+    const fn2 = cp('hoge/1.txt', 'dest');
+    assert.isRejected(fn1, 'ENOENT');
+    assert.isRejected(fn2, 'ENOENT');
   });
 });

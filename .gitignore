@@ -15,4 +15,4 @@ Thumbs.db
 node_modules
 *.map
 
-/index.js
+/dist
